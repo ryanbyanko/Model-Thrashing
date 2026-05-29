@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Thrashing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <h1><input id="expName" type="text" value="Model Thrashing" spellcheck="false"></h1>
+    </header>
+
+    <!-- Connection Section -->
+    <div class="connect-bar">
+      <div class="field grow">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label for="baseUrl" data-tooltip="Server endpoint for OpenAI-compatible API requests.">Base URL</label>
+          <span id="urlWarning" class="url-warning" style="display:none;">⚠️ External URL Warning</span>
+        </div>
+        <input id="baseUrl" type="text" value="http://127.0.0.1:1234" spellcheck="false" oninput="checkBaseUrl()">
+      </div>
+      <div class="field">
+        <label for="apiKey" data-tooltip="API key (for external LLM providers).">API Key <span
+            style="color:var(--text-muted)">(optional)</span></label>
+        <input id="apiKey" type="password" placeholder="sk-...">
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn" id="testConnBtn" type="button">Test Connection</button>
+      </div>
+    </div>
+    <div id="testConnStatus" class="test-status-msg" style="display:none;"></div>
+
+    <!-- Config Panes -->
+    <div class="configs-container">
+      <div class="configs-header">
+        <div class="section-label" style="margin:0">Model Configs</div>
+        <button class="btn" id="addConfigBtn">+ Add Config</button>
+      </div>
+      <div class="config-panes" id="configPanes"></div>
+    </div>
+
+    <!-- Routing Section (Streamlined with unlabeled preset dropdown and shared expression box underneath) -->
+    <div class="routing-bar-container">
+      <div class="section-label" data-tooltip="Ruleset determining which model configuration generates the next token.">
+        Routing</div>
+      <div class="routing-bar" style="display: flex; flex-direction: column; gap: 16px; align-items: stretch;">
+        <!-- Unlabeled Strategy Presets Dropdown -->
+        <div class="field" style="width: 100%; max-width: 320px;">
+          <select id="routingPreset" onchange="onRoutingPresetChange()">
+            <option value="alternate" selected>Round Robin</option>
+            <option value="chunk">Chunk Round Robin</option>
+            <option value="random">Random</option>
+            <option value="paragraph">Paragraph Switch</option>
+            <option value="custom">Custom Expression</option>
+          </select>
+        </div>
+
+        <!-- Underneath expression, custom toggle, and token trigger inputs -->
+        <div class="routing-custom-panel" id="routingCustomPanel"
+          style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; width: 100%;">
+          <div class="field expression-field">
+            <input id="routingExpr" type="text" placeholder="enter expression" value="i % n" disabled spellcheck="false"
+              data-tooltip="Javascript expression for the index of the config to select - variables: i = token index, l = last config index, n = config count, r(x) = random int from 0 to x-1">
+          </div>
+
+          <div class="toggle-container routing-toggle-field" id="routingToggleContainer"
+            style="opacity: 0.4; pointer-events: none;">
+            <span class="toggle-label-text active" id="lblFixed">Fixed</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="customRoutingType" disabled onchange="onRoutingTypeToggle()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label-text" id="lblTokenBased">Token-Triggered</span>
+          </div>
+
+          <div class="field grow" id="tokenTriggerFieldContainer" style="display: none;">
+            <input id="tokenTrigger" type="text" placeholder="trigger tokens" value="" disabled spellcheck="false"
+              data-tooltip="Tokens to trigger model switching (comma seperated)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Prompt -->
+    <div class="prompt-box">
+      <div class="section-label" data-tooltip="The input prompt submitted to the model for response">User Prompt</div>
+      <textarea id="userPrompt" rows="2" spellcheck="false">Why can't I seem to lose weight, no matter how hard I try?</textarea>
+    </div>
+
+    <!-- Run Controls (Enclosed in a panel with calculation & status line) -->
+    <div class="run-bar-container">
+      <div class="run-bar">
+        <div class="field">
+          <label for="maxTokens"
+            data-tooltip="Maximum tokens generated in a single run, set to 0 for infinite generation">Max Tokens</label>
+          <input id="maxTokens" type="number" value="200" min="0" oninput="updateMaxTokensCalc()">
+        </div>
+        <div class="field">
+          <label for="peekTokens"
+            data-tooltip="Extra tokens generated in each request for interpretability (does not affect output)">Peek
+            Tokens</label>
+          <input id="peekTokens" type="number" value="15" min="0" oninput="updateMaxTokensCalc()">
+        </div>
+        <div class="field-info-text"
+          data-tooltip="The total amount of API tokens that could be generated across the run">
+          Max output tokens: <span id="calculatedMaxTokens" style="font-weight:600; color:var(--accent);">3200</span>
+        </div>
+        <div class="run-actions" style="margin-left:auto; display:flex; gap:10px; align-items:center;">
+          <div id="runBtnWrapper" style="display:inline-block;">
+            <button class="btn primary" id="runBtn" disabled>▶ Run</button>
+          </div>
+          <button class="btn primary" id="continueBtn" style="display:none;">Continue until stop</button>
+          <button class="btn danger" id="stopBtn" disabled>⏹ Stop</button>
+        </div>
+      </div>
+      <div class="run-status-line">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">idle</span>
+      </div>
+    </div>
+
+    <!-- View toggle (Replaced with a beautiful unified slider switch) -->
+    <div class="toggle-bar">
+      <span class="toggle-label-text active" id="lblTk">Token View</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="viewToggle" onchange="toggleViewSwitch()">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label-text" id="lblMd">Markdown Rendered</span>
+    </div>
+
+    <!-- Response card -->
+    <div class="response-card" id="responseCard">
+      <div class="md-layer" id="mdLayer">
+        <span class="placeholder-text">Output will appear here...</span>
+      </div>
+      <div class="token-layer" id="tokenLayer"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend" id="legend"></div>
+
+    <!-- File controls -->
+    <div class="file-bar" style="margin-top:20px;">
+      <button class="btn" id="loadBtn">Load JSON</button>
+      <input type="file" id="fileInput" accept=".json">
+      <button class="btn" id="downloadBtn" disabled>Download JSON</button>
+    </div>
+  </div>
+
+  <!-- Tooltip (global, follows cursor) -->
+  <div class="tooltip" id="tooltip"></div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
