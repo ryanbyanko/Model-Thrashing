@@ -1,12 +1,8 @@
 # Model Thrashing Demo
 
-A browser-based tool for experimenting with **model thrashing**: switching between different LLM configurations mid-generation.
-
-Responses are built incrementally, with each token potentially sourced from a different model according to a routing strategy.
+A browser-based tool for experimenting with **model thrashing**: switching between different LLM configurations mid-generation. Responses are built incrementally, with each token potentially sourced from a different model configuration (model, system prompt, and sampling parameters) according to a routing strategy.
 
 The demo runs entirely in-browser, but requires an OpenAI-compatible API endpoint
-
----
 
 ## Quick Start
 
@@ -33,8 +29,6 @@ The demo talks to any **OpenAI-compatible API** (`/v1/chat/completions`). **It i
 3. Configure at least one **Model Config** with a model name (e.g. `qwen/qwen3.5-9b`)
 4. Set a **User Prompt** and choose a **Routing Strategy**.
 5. Click **▶ Run**.
-
----
 
 ## Controls
 
@@ -83,7 +77,7 @@ This is the input prompt submitted to each config to form the response, like the
 | Peek Tokens | Extra tokens generated speculatively after each real token for visualization purposes, shown as fading ghost text - does not affect the actual output |
 | ▶ Run | Starts generation |
 | ⏹ Stop | Aborts generation immediately. |
-| Continue until stop | Resumes generation until a stop token is encountered (appears if output hits the specified max) |
+| Continue until stop | Restarts generation at the latest token (appears if output ends before a stop token) |
 
 ### Output
 
@@ -99,7 +93,6 @@ Toggle between two views using the switch above the output panel:
 | Download JSON | Export the current run as a JSON file including all tokens, configs, and metadata |
 | Load JSON | Import a previously saved result (restores tokens, configs, and routing settings) |
 
----
 
 ## Note on reasoning models
 
