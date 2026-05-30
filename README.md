@@ -4,6 +4,8 @@ A browser-based tool for experimenting with **model thrashing**: switching betwe
 
 The demo runs entirely in-browser, but requires an OpenAI-compatible API endpoint
 
+> **Vibe code disclaimer:** This project has a lot of AI-generated code without thorough human review, so expect some rough edges.
+
 ## Quick Start
 
 ### 1. Launch the demo
@@ -93,7 +95,10 @@ Toggle between two views using the switch above the output panel:
 | Download JSON | Export the current run as a JSON file including all tokens, configs, and metadata |
 | Load JSON | Import a previously saved result (restores tokens, configs, and routing settings) |
 
+---
 
-## Note on reasoning models
+## Notes
+
+### Reasoning Models
 
 This demo expects outputs in `response.choices[0].message.content`. If reasoning traces are generated in a seperate field like `message.reasoning_content`, no response might be generated even if requests are still being made. I tried to explicitly disable reasoning using a variety of provider-specific flags, but it's possible I missed some.
